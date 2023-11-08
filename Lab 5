@@ -1,0 +1,86 @@
+#include <iostream>
+#include <string>
+#include <sstream>
+
+// Абстрактний базовий клас для зберігання та обробки послідовності цифр.
+class CDataChain
+{
+public:
+    CDataChain() {}
+    virtual ~CDataChain() {}
+    
+    // Віртуальний метод для генерації послідовності цифр.
+    virtual void Generate(int nDepth, int nMaxLength = 0) = 0;
+    
+    // Отримання довжини згенерованої послідовності.
+    size_t GetLength() {
+        return m_sChain.length();
+    }
+    
+    // Пошук підстрічки у згенерованій послідовності, починаючи з позиції nPos.
+    int Find(const char* sSubStr, int nPos = 0) {
+        std::string str(sSubStr);
+        size_t pos = m_sChain.find(str, nPos);
+        return pos == std::string::npos ? -1 : static_cast<int>(pos);
+    }
+    
+    // Отримання підстрічки із згенерованої послідовності, починаючи з nPos.
+    std::string GetSubStr(int nPos, int nLength = -1) {
+        if (nLength == -1 || nPos + nLength > GetLength()) {
+            return m_sChain.substr(nPos);
+        }
+        return m_sChain.substr(nPos, nLength);
+    }
+    
+    // Повернення всієї згенерованої послідовності цифр.
+    const char* GetFullString() {
+        return m_sChain.c_str();
+    }
+
+protected:
+    // Зберігання згенерованої послідовності у форматі рядка.
+    std::string m_sChain;
+};
+
+// Клас-нащадок, який реалізує методи генерації та обробки послідовності цифр.
+class CDataSimple : public CDataChain
+{
+public:
+    CDataSimple() {}
+    virtual ~CDataSimple() {}
+    
+    // Реалізація методу генерації послідовності через конкатенацію натуральних чисел.
+    void Generate(int nDepth, int nMaxLength = 0) {
+        std::ostringstream ss;
+        for (int i = 0; i <= nDepth; ++i) {
+            ss << i;
+            // Переривання циклу, якщо досягнуто максимальної довжини.
+            if (nMaxLength > 0 && ss.str().length() >= static_cast<size_t>(nMaxLength)) {
+                break;
+            }
+        }
+        // Обмеження згенерованої послідовності до максимальної довжини, якщо вказано.
+        m_sChain = ss.str().substr(0, nMaxLength);
+    }
+};
+
+int main() {
+    // Створення об'єкту класу CDataSimple.
+    CDataSimple data;
+    // Генерація послідовності довжиною до 20 символів з чисел від 0 до 15.
+    data.Generate(15, 20);
+    // Виведення згенерованої послідовності.
+    std::cout << "Generated sequence: " << data.GetFullString() << std::endl;
+    // Виведення довжини згенерованої послідовності.
+    std::cout << "Sequence length: " << data.GetLength() << std::endl;
+    
+    // Пошук підстрічки "345" у згенерованій послідовності.
+    int pos = data.Find("345");
+    std::cout << "Position of '345': " << pos << std::endl;
+    
+    // Отримання підстрічки довжиною 5 символів, починаючи з 5-ї позиції.
+    std::string subStr = data.GetSubStr(5, 5);
+    std::cout << "Substring starting at 5 of length 5: " << subStr << std::endl;
+    
+    return 0;
+}
