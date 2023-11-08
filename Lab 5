@@ -1,86 +1,169 @@
 #include <iostream>
+#include <vector>
 #include <string>
 #include <sstream>
+#include <fstream>
 
-// Абстрактний базовий клас для зберігання та обробки послідовності цифр.
-class CDataChain
-{
+using namespace std;
+
+// Клас для зберігання та генерації послідовності цифр
+class CDataChain {
 public:
     CDataChain() {}
     virtual ~CDataChain() {}
-    
-    // Віртуальний метод для генерації послідовності цифр.
     virtual void Generate(int nDepth, int nMaxLength = 0) = 0;
-    
-    // Отримання довжини згенерованої послідовності.
-    size_t GetLength() {
-        return m_sChain.length();
-    }
-    
-    // Пошук підстрічки у згенерованій послідовності, починаючи з позиції nPos.
-    int Find(const char* sSubStr, int nPos = 0) {
-        std::string str(sSubStr);
+    size_t GetLength() const { return m_sChain.length(); }
+    int Find(const char* sSubStr, int nPos = 0) const {
+        string str(sSubStr);
         size_t pos = m_sChain.find(str, nPos);
-        return pos == std::string::npos ? -1 : static_cast<int>(pos);
+        return pos == string::npos ? -1 : static_cast<int>(pos);
     }
-    
-    // Отримання підстрічки із згенерованої послідовності, починаючи з nPos.
-    std::string GetSubStr(int nPos, int nLength = -1) {
+    string GetSubStr(int nPos, int nLength = -1) const {
         if (nLength == -1 || nPos + nLength > GetLength()) {
             return m_sChain.substr(nPos);
         }
         return m_sChain.substr(nPos, nLength);
     }
-    
-    // Повернення всієї згенерованої послідовності цифр.
-    const char* GetFullString() {
-        return m_sChain.c_str();
-    }
-
+    const char* GetFullString() const { return m_sChain.c_str(); }
+    void SetChain(const string& newChain) { m_sChain = newChain; }
 protected:
-    // Зберігання згенерованої послідовності у форматі рядка.
-    std::string m_sChain;
+    string m_sChain;
 };
 
-// Клас-нащадок, який реалізує методи генерації та обробки послідовності цифр.
-class CDataSimple : public CDataChain
-{
+// Наслідуваний клас для простої генерації послідовності
+class CDataSimple : public CDataChain {
 public:
     CDataSimple() {}
     virtual ~CDataSimple() {}
-    
-    // Реалізація методу генерації послідовності через конкатенацію натуральних чисел.
-    void Generate(int nDepth, int nMaxLength = 0) {
-        std::ostringstream ss;
+    void Generate(int nDepth, int nMaxLength = 0) override {
+        ostringstream ss;
         for (int i = 0; i <= nDepth; ++i) {
             ss << i;
-            // Переривання циклу, якщо досягнуто максимальної довжини.
             if (nMaxLength > 0 && ss.str().length() >= static_cast<size_t>(nMaxLength)) {
                 break;
             }
         }
-        // Обмеження згенерованої послідовності до максимальної довжини, якщо вказано.
         m_sChain = ss.str().substr(0, nMaxLength);
     }
 };
 
+// Клас CWorkspace для роботи з даними
+class CWorkspace {
+public:
+    CWorkspace(CDataChain& data) : m_data(data) {}
+    void Generate(int nDepth, int nMaxLength) { m_data.Generate(nDepth, nMaxLength); }
+    const char* GetChainString() const { return m_data.GetFullString(); }
+    void SetChain(const string& newChain) { m_data.SetChain(newChain); }
+private:
+    CDataChain& m_data;
+};
+
+// Тип функції команди
+typedef void (*ptDlgCommandFunc)(CWorkspace& ws);
+
+// Клас для зв'язування команд з функціями
+class CDlgCommand {
+public:
+    CDlgCommand(const char* sName, ptDlgCommandFunc pFunc = NULL) : m_sName(sName), m_pFunc(pFunc) {}
+    ~CDlgCommand() {}
+    const char* GetName() const { return m_sName.c_str(); }
+    void Run(CWorkspace& ws) const {
+        if (m_pFunc) (*m_pFunc)(ws);
+        else cout << "No function associated with this command." << endl;
+    }
+private:
+    string m_sName;
+    ptDlgCommandFunc m_pFunc;
+};
+
+// Клас для управління діалогом
+class CDialogManager {
+public:
+    CDialogManager(CWorkspace& ws) : m_refWorkspace(ws) {
+        m_aCommands.push_back(new CDlgCommand("Quit"));
+    }
+    ~CDialogManager() {
+        for (CDlgCommand* command : m_aCommands) {
+            delete command;
+        }
+    }
+    void RegisterCommand(const char* sName, ptDlgCommandFunc pFunc) {
+        m_aCommands.push_back(new CDlgCommand(sName, pFunc));
+    }
+    void Run() {
+        int nCommand = -1;
+        while (nCommand != 0) {
+            cout << endl;
+            for (size_t i = 0; i < m_aCommands.size(); i++) {
+                cout << i << ". " << m_aCommands[i]->GetName() << endl;
+            }
+            cout << "Enter command: ";
+            cin >> nCommand;
+            if (nCommand > 0 && nCommand < (int)m_aCommands.size()) {
+                m_aCommands[nCommand]->Run(m_refWorkspace);
+            }
+        }
+    }
+private:
+    vector<CDlgCommand*> m_aCommands;
+    CWorkspace& m_refWorkspace;
+};
+
+// Функції для команд користувача
+void Init(CWorkspace& ws) {
+    int depth, maxLength;
+    cout << "Enter depth for sequence generation: ";
+    cin >> depth;
+    cout << "Enter maximum length for the sequence: ";
+    cin >> maxLength;
+    ws.Generate(depth, maxLength);
+    cout << "Sequence initialized." << endl;
+}
+
+void ShowFullSequence(CWorkspace& ws) {
+    cout << "Current sequence: " << ws.GetChainString() << endl;
+}
+
+void Save(CWorkspace& ws) {
+    string filepath;
+    cout << "Enter filename to save the sequence: ";
+    cin >> filepath;
+    ofstream file(filepath);
+    if (file.is_open()) {
+        file << ws.GetChainString();
+        file.close();
+        cout << "Sequence saved to " << filepath << endl;
+    } else {
+        cout << "Error: Could not open file " << filepath << endl;
+    }
+}
+
+void Load(CWorkspace& ws) {
+    string filepath;
+    cout << "Enter filename to load the sequence from: ";
+    cin >> filepath;
+    ifstream file(filepath);
+    if (file.is_open()) {
+        string line;
+        getline(file, line);
+        ws.SetChain(line);
+        cout << "Sequence loaded from " << filepath << endl;
+    } else {
+        cout << "Error: Could not open file " << filepath << endl;
+    }
+}
+
 int main() {
-    // Створення об'єкту класу CDataSimple.
     CDataSimple data;
-    // Генерація послідовності довжиною до 20 символів з чисел від 0 до 15.
-    data.Generate(15, 20);
-    // Виведення згенерованої послідовності.
-    std::cout << "Generated sequence: " << data.GetFullString() << std::endl;
-    // Виведення довжини згенерованої послідовності.
-    std::cout << "Sequence length: " << data.GetLength() << std::endl;
-    
-    // Пошук підстрічки "345" у згенерованій послідовності.
-    int pos = data.Find("345");
-    std::cout << "Position of '345': " << pos << std::endl;
-    
-    // Отримання підстрічки довжиною 5 символів, починаючи з 5-ї позиції.
-    std::string subStr = data.GetSubStr(5, 5);
-    std::cout << "Substring starting at 5 of length 5: " << subStr << std::endl;
-    
+    CWorkspace ws(data);
+    CDialogManager mgr(ws);
+
+    mgr.RegisterCommand("Init sequence", Init);
+    mgr.RegisterCommand("Show sequence", ShowFullSequence);
+    mgr.RegisterCommand("Save", Save);
+    mgr.RegisterCommand("Load", Load);
+
+    mgr.Run();
+
     return 0;
 }
