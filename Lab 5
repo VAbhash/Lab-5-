@@ -3,48 +3,51 @@
 #include <string>
 #include <sstream>
 
+using namespace std;
 
+// Абстрактний базовий клас для зберігання та обробки послідовності цифр.
 class CDataChain {
 public:
     CDataChain() {}
     virtual ~CDataChain() {}
 
-    // Віртуальний метод для генерації послідовності цифр.
+    // Віртуальний метод для генерації послідовності цифр, який повинен бути реалізований у нащадках.
     virtual void Generate(int nDepth, int nMaxLength = 0) = 0;
 
-    // Отримання довжини згенерованої послідовності.
+    // Метод для отримання довжини поточної послідовності.
     size_t GetLength() const {
         return m_sChain.length();
     }
-
-    // Пошук підстрічки у згенерованій послідовності, починаючи з позиції nPos.
+    
+    // Метод для пошуку підстрічки у поточній послідовності, починаючи з позиції nPos.
     int Find(const char* sSubStr, int nPos = 0) const {
-        std::string str(sSubStr);
+        string str(sSubStr);
         size_t pos = m_sChain.find(str, nPos);
-        return pos == std::string::npos ? -1 : static_cast<int>(pos);
+        
+        return pos == string::npos ? -1 : static_cast<int>(pos);
     }
-
-    // Отримання підстрічки із згенерованої послідовності, починаючи з nPos.
-    std::string GetSubStr(int nPos, int nLength = -1) const {
+    
+    // Метод для отримання підстрічки з послідовності, починаючи з позиції nPos.
+    string GetSubStr(int nPos, int nLength = -1) const {
         if (nLength == -1 || nPos + nLength > GetLength()) {
             return m_sChain.substr(nPos);
         }
         return m_sChain.substr(nPos, nLength);
     }
-
-    // Повернення всієї згенерованої послідовності цифр.
+    
+    // Метод для отримання всієї поточної послідовності цифр.
     const char* GetFullString() const {
         return m_sChain.c_str();
     }
 
     // Метод для безпечного встановлення нової послідовності цифр.
-    void SetChain(const std::string& newChain) {
+    void SetChain(const string& newChain) {
         m_sChain = newChain;
     }
 
 protected:
     // Зберігання згенерованої послідовності у форматі рядка.
-    std::string m_sChain;
+    string m_sChain;
 };
 
 // Клас-нащадок, який реалізує методи генерації та обробки послідовності цифр.
@@ -55,15 +58,15 @@ public:
 
     // Реалізація методу генерації послідовності через конкатенацію натуральних чисел.
     void Generate(int nDepth, int nMaxLength = 0) override {
-        std::ostringstream ss;
+        ostringstream ss;
         for (int i = 0; i <= nDepth; ++i) {
-            ss << i;
+            ss << i; // Додаємо число до стрічки.
             // Переривання циклу, якщо досягнуто максимальної довжини.
             if (nMaxLength > 0 && ss.str().length() >= static_cast<size_t>(nMaxLength)) {
-                break;
+                break; 
             }
         }
-        // Обмеження згенерованої послідовності до максимальної довжини, якщо вказано.
+        // Встановлюємо згенеровану послідовність з урахуванням максимальної довжини.
         m_sChain = ss.str().substr(0, nMaxLength);
     }
 };
@@ -73,8 +76,6 @@ class CWorkspace {
 public:
     // Конструктор приймає посилання на об'єкт CDataChain.
     CWorkspace(CDataChain& data) : m_refChain(data) {}
-
-    ~CWorkspace() {}
 
     // Ініціалізує послідовність цифр використовуючи об'єкт CDataChain.
     void Init(int nDepth, int nLength) {
@@ -87,8 +88,8 @@ public:
     }
 
     // Зберігає стан Workspace у файл.
-    bool Save(const std::string& sFilepath) {
-        std::ofstream file(sFilepath);
+    bool Save(const string& sFilepath) {
+        ofstream file(sFilepath);
         if (file.is_open()) {
             file << GetChainString();
             file.close();
@@ -98,11 +99,11 @@ public:
     }
 
     // Відновлює стан Workspace із файлу.
-    bool Load(const std::string& sFilepath) {
-        std::ifstream file(sFilepath);
+    bool Load(const string& sFilepath) {
+        ifstream file(sFilepath);
         if (file.is_open()) {
-            std::string line;
-            std::getline(file, line);
+            string line;
+            getline(file, line);
             m_refChain.SetChain(line); // Відновлюємо послідовність через новий метод.
             file.close();
             return true;
@@ -119,28 +120,24 @@ int main() {
     CDataSimple data;
     CWorkspace ws(data);
 
-    // Ініціалізуємо послідовність цифр.
     ws.Init(15, 20);
 
-    // Показуємо згенеровану послідовність.
-    std::cout << "Chain: " << ws.GetChainString() << std::endl;
+    cout << "Chain: " << ws.GetChainString() << endl;
 
-    // Зберігаємо стан у файл.
-    std::string filepath = "workspace.txt";
+    string filepath = "workspace.txt";
     if (ws.Save(filepath)) {
-        std::cout << "Workspace saved to file." << std::endl;
+        cout << "Workspace saved to file." << endl;
     } else {
-        std::cout << "Failed to save workspace." << std::endl;
+        cout << "Failed to save workspace." << endl;
     }
 
-    // Створення нового Workspace та відновлення стану із файлу.
     CDataSimple newData;
     CWorkspace newWs(newData);
     if (newWs.Load(filepath)) {
-        std::cout << "Workspace loaded from file." << std::endl;
-        std::cout << "Loaded chain: " << newWs.GetChainString() << std::endl;
+        cout << "Workspace loaded from file." << endl;
+        cout << "Loaded chain: " << newWs.GetChainString() << endl;
     } else {
-        std::cout << "Failed to load workspace." << std::endl;
+        cout << "Failed to load workspace." << endl;
     }
 
     return 0;
