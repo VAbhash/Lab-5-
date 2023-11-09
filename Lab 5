@@ -1,248 +1,228 @@
 #include <iostream>
-#include <fstream>
+#include <vector>
 #include <string>
 #include <sstream>
-#include <vector>
+#include <fstream>
 
 using namespace std;
 
-
+// Клас для зберігання та генерації послідовності цифр
 class CDataChain {
 public:
     CDataChain() {}
     virtual ~CDataChain() {}
 
-    // Віртуальний метод для генерації послідовності цифр, який повинен бути реалізований у нащадках.
+    // Генерація послідовності цифр
     virtual void Generate(int nDepth, int nMaxLength = 0) = 0;
 
-    // Метод для отримання довжини поточної послідовності.
-    size_t GetLength() const {
-        return m_sChain.length();
-    }
-    
-    // Метод для пошуку підстрічки у поточній послідовності, починаючи з позиції nPos.
+    // Отримання довжини послідовності
+    size_t GetLength() const { return m_sChain.length(); }
+
+    // Пошук підстрічки в послідовності
     int Find(const char* sSubStr, int nPos = 0) const {
         string str(sSubStr);
         size_t pos = m_sChain.find(str, nPos);
-        
         return pos == string::npos ? -1 : static_cast<int>(pos);
     }
-    
-    // Метод для отримання підстрічки з послідовності, починаючи з позиції nPos.
+
+    // Отримання підстрічки за певними параметрами
     string GetSubStr(int nPos, int nLength = -1) const {
         if (nLength == -1 || nPos + nLength > GetLength()) {
             return m_sChain.substr(nPos);
         }
         return m_sChain.substr(nPos, nLength);
     }
-    
-    // Метод для отримання всієї поточної послідовності цифр.
-    const char* GetFullString() const {
-        return m_sChain.c_str();
-    }
 
-    // Метод для безпечного встановлення нової послідовності цифр.
-    void SetChain(const string& newChain) {
-        m_sChain = newChain;
-    }
+    // Отримання повної послідовності як C-style рядок
+    const char* GetFullString() const { return m_sChain.c_str(); }
+
+    // Встановлення нової послідовності
+    void SetChain(const string& newChain) { m_sChain = newChain; }
 
 protected:
-    // Зберігання згенерованої послідовності у форматі рядка.
     string m_sChain;
 };
 
-// Клас-нащадок, який реалізує методи генерації та обробки послідовності цифр.
+// Наслідуваний клас для простої генерації послідовності
 class CDataSimple : public CDataChain {
 public:
     CDataSimple() {}
     virtual ~CDataSimple() {}
 
-    // Реалізація методу генерації послідовності через конкатенацію натуральних чисел.
+    // Генерація простої послідовності цифр
     void Generate(int nDepth, int nMaxLength = 0) override {
         ostringstream ss;
         for (int i = 0; i <= nDepth; ++i) {
-            ss << i; 
-            // Переривання циклу, якщо досягнуто максимальної довжини.
+            ss << i;
             if (nMaxLength > 0 && ss.str().length() >= static_cast<size_t>(nMaxLength)) {
-                break; 
+                break;
             }
         }
-        // Встановлюємо згенеровану послідовність з урахуванням максимальної довжини.
         m_sChain = ss.str().substr(0, nMaxLength);
     }
 };
 
-// Клас, який представляє посилання на фрагмент послідовності
-class CLink {
-public:
-    CLink(CDataChain& refChain) : m_refChain(refChain), m_nPos(0), m_nSize(0) {}
-    virtual ~CLink() {}
-
-    bool Attach(const char* sSubStr) {
-        m_nPos = m_refChain.Find(sSubStr);
-        if (m_nPos != -1) {
-            m_nSize = static_cast<int>(strlen(sSubStr));
-            return true;
-        }
-        return false;
-    }
-
-    virtual void Output(ostream& os) {
-        os << "Link: Position=" << m_nPos << ", Size=" << m_nSize << endl;
-    }
-
-    virtual bool Save(ostream& so) {
-        so.write(reinterpret_cast<char*>(&m_nPos), sizeof(m_nPos));
-        so.write(reinterpret_cast<char*>(&m_nSize), sizeof(m_nSize));
-        return true;
-    }
-
-    virtual bool Load(istream& is) {
-        is.read(reinterpret_cast<char*>(&m_nPos), sizeof(m_nPos));
-        is.read(reinterpret_cast<char*>(&m_nSize), sizeof(m_nSize));
-        return true;
-    }
-
-protected:
-    CDataChain& m_refChain;
-    int m_nPos;
-    int m_nSize;
-};
-
-// Допоміжний синонім для типу масиву посилань.
-typedef vector<CLink*> LinksArray;
-
-// Клас для роботи з об'єктом CDataChain та збереження/відновлення стану.
+// Клас CWorkspace для роботи з даними
 class CWorkspace {
 public:
-    CWorkspace(CDataChain& data) : m_refChain(data) {}
-    ~CWorkspace() {
-        // Видаляємо всі об'єкти посилань при знищенні Workspace.
-        for (auto link : m_aLinks) {
-            delete link;
+    CWorkspace(CDataChain& data) : m_data(data) {}
+
+    // Генерація нової послідовності через об'єкт CDataChain
+    void Generate(int nDepth, int nMaxLength) { m_data.Generate(nDepth, nMaxLength); }
+
+    // Отримання повної послідовності як C-style рядок
+    const char* GetChainString() const { return m_data.GetFullString(); }
+
+    // Встановлення нової послідовності через об'єкт CDataChain
+    void SetChain(const string& newChain) { m_data.SetChain(newChain); }
+
+    // Пошук підстрічки в послідовності через об'єкт CDataChain
+    int FindSubstring(const char* sSubStr, int nPos = 0) const { return m_data.Find(sSubStr, nPos); }
+
+private:
+    CDataChain& m_data;
+};
+
+// Тип функції команди
+typedef void (*ptDlgCommandFunc)(CWorkspace& ws);
+
+// Клас для зв'язування команд з функціями
+class CDlgCommand {
+public:
+    CDlgCommand(const char* sName, ptDlgCommandFunc pFunc = NULL) : m_sName(sName), m_pFunc(pFunc) {}
+
+    // Отримання назви команди
+    const char* GetName() const { return m_sName.c_str(); }
+
+    // Виконання команди через функцію, яку вона представляє
+    void Run(CWorkspace& ws) const {
+        if (m_pFunc) (*m_pFunc)(ws);
+        else cout << "No function associated with this command." << endl;
+    }
+
+private:
+    string m_sName;
+    ptDlgCommandFunc m_pFunc;
+};
+
+// Клас для управління діалогом
+class CDialogManager {
+public:
+    CDialogManager(CWorkspace& ws) : m_refWorkspace(ws) {
+        m_aCommands.push_back(new CDlgCommand("Quit"));
+    }
+
+    // Звільнення ресурсів при завершенні роботи
+    ~CDialogManager() {
+        for (CDlgCommand* command : m_aCommands) {
+            delete command;
         }
-        m_aLinks.clear();
     }
 
-    void Init(int nDepth, int nLength) {
-        m_refChain.Generate(nDepth, nLength);
+    // Реєстрація нової команди
+    void RegisterCommand(const char* sName, ptDlgCommandFunc pFunc) {
+        m_aCommands.push_back(new CDlgCommand(sName, pFunc));
     }
 
-    const char* GetChainString() const {
-        return m_refChain.GetFullString();
-    }
-
-    bool Save(const string& sFilepath) {
-        ofstream file(sFilepath, ios::binary);
-        if (file.is_open()) {
-            // Зберігаємо основну послідовність.
-            file << GetChainString();
-            // Зберігаємо кількість посилань.
-            int numLinks = static_cast<int>(m_aLinks.size());
-            file.write(reinterpret_cast<char*>(&numLinks), sizeof(numLinks));
-            // Зберігаємо кожне посилання.
-            for (auto link : m_aLinks) {
-                link->Save(file);
+    // Запуск діалогового інтерфейсу
+    void Run() {
+        int nCommand = -1;
+        while (nCommand != 0) {
+            cout << endl;
+            for (size_t i = 0; i < m_aCommands.size(); i++) {
+                cout << i << ". " << m_aCommands[i]->GetName() << endl;
             }
-            file.close();
-            return true;
-        }
-        return false;
-    }
-
-    bool Load(const string& sFilepath) {
-        ifstream file(sFilepath, ios::binary);
-        if (file.is_open()) {
-            // Зчитуємо основну послідовність.
-            string mainSequence;
-            getline(file, mainSequence);
-            m_refChain.SetChain(mainSequence);
-            // Зчитуємо кількість посилань.
-            int numLinks = 0;
-            file.read(reinterpret_cast<char*>(&numLinks), sizeof(numLinks));
-            // Зчитуємо кожне посилання та додаємо його до Workspace.
-            for (int i = 0; i < numLinks; ++i) {
-                CLink* link = new CLink(m_refChain);
-                link->Load(file);
-                m_aLinks.push_back(link);
+            cout << "Enter command: ";
+            cin >> nCommand;
+            if (nCommand > 0 && nCommand < (int)m_aCommands.size()) {
+                m_aCommands[nCommand]->Run(m_refWorkspace);
             }
-            file.close();
-            return true;
-        }
-        return false;
-    }
-
-    bool AddLink(int nStartPos, int nLength, CLink* pLink) {
-        if (nStartPos < 0 || nStartPos > static_cast<int>(m_refChain.GetLength())) {
-            return false;
-        }
-        // Додаємо нове посилання до Workspace та аттачимо його до основної послідовності.
-        m_aLinks.push_back(pLink);
-        pLink->Attach(m_refChain.GetSubStr(nStartPos, nLength).c_str());
-        return true;
-    }
-
-    bool RemoveLink(int nPosInList) {
-        if (nPosInList < 0 || nPosInList >= static_cast<int>(m_aLinks.size())) {
-            return false;
-        }
-        // Видаляємо посилання з позначкою nPosInList.
-        delete m_aLinks[nPosInList];
-        m_aLinks.erase(m_aLinks.begin() + nPosInList);
-        return true;
-    }
-
-    bool GetAllLinks(LinksArray& aLinks) {
-        // Повертаємо всі посилання через aLinks.
-        aLinks = m_aLinks;
-        return true;
-    }
-
-    void ShowAllLinks() {
-        cout << "All Links:" << endl;
-        // Виводимо інформацію про всі посилання.
-        for (auto link : m_aLinks) {
-            link->Output(cout);
         }
     }
 
 private:
-    CDataChain& m_refChain;
-    LinksArray m_aLinks;
+    vector<CDlgCommand*> m_aCommands;
+    CWorkspace& m_refWorkspace;
 };
 
+// Функції для команд користувача
+
+// Ініціалізація послідовності через об'єкт CDataChain
+void Init(CWorkspace& ws) {
+    int depth, maxLength;
+    cout << "Enter depth for sequence generation: ";
+    cin >> depth;
+    cout << "Enter maximum length for the sequence: ";
+    cin >> maxLength;
+    ws.Generate(depth, maxLength);
+    cout << "Sequence initialized." << endl;
+}
+
+// Виведення повної послідовності на екран через об'єкт CDataChain
+void ShowFullSequence(CWorkspace& ws) {
+    cout << "Current sequence: " << ws.GetChainString() << endl;
+}
+
+// Збереження послідовності у файл через об'єкт CDataChain
+void Save(CWorkspace& ws) {
+    string filepath;
+    cout << "Enter filename to save the sequence: ";
+    cin >> filepath;
+    ofstream file(filepath);
+    if (file.is_open()) {
+        file << ws.GetChainString();
+        file.close();
+        cout << "Sequence saved to " << filepath << endl;
+    } else {
+        cout << "Error: Could not open file " << filepath << endl;
+    }
+}
+
+// Завантаження послідовності з файлу через об'єкт CDataChain
+void Load(CWorkspace& ws) {
+    string filepath;
+    cout << "Enter filename to load the sequence from: ";
+    cin >> filepath;
+    ifstream file(filepath);
+    if (file.is_open()) {
+        string line;
+        getline(file, line);
+        ws.SetChain(line);
+        cout << "Sequence loaded from " << filepath << endl;
+    } else {
+        cout << "Error: Could not open file " << filepath << endl;
+    }
+}
+
+// Пошук підстрічки в послідовності через об'єкт CDataChain
+void FindSubstring(CWorkspace& ws) {
+    string substring;
+    cout << "Enter substring to find: ";
+    cin >> substring;
+    int position = ws.FindSubstring(substring.c_str());
+    if (position != -1) {
+        cout << "Substring found at position: " << position << endl;
+    } else {
+        cout << "Substring not found in the sequence." << endl;
+    }
+}
+
+
 int main() {
+    
     CDataSimple data;
     CWorkspace ws(data);
+    CDialogManager mgr(ws);
 
-    ws.Init(15, 20);
+    // Реєстрація команд для діалогового інтерфейсу
+    mgr.RegisterCommand("Init sequence", Init);
+    mgr.RegisterCommand("Show sequence", ShowFullSequence);
+    mgr.RegisterCommand("Save", Save);
+    mgr.RegisterCommand("Load", Load);
+    mgr.RegisterCommand("Find substring", FindSubstring);  
 
-    cout << "Chain: " << ws.GetChainString() << endl;
-
-    CLink* newLink = new CLink(data);
-    ws.AddLink(5, 3, newLink);
-
-    string filepath = "workspace.txt";
-    if (ws.Save(filepath)) {
-        cout << "Workspace saved to file." << endl;
-    } else {
-        cout << "Failed to save workspace." << endl;
-    }
-
-    CDataSimple newData;
-    CWorkspace newWs(newData);
-    if (newWs.Load(filepath)) {
-        cout << "Workspace loaded from file." << endl;
-        cout << "Loaded chain: " << newWs.GetChainString() << endl;
-        LinksArray loadedLinks;
-        newWs.GetAllLinks(loadedLinks);
-        for (auto link : loadedLinks) {
-            link->Output(cout);
-        }
-        newWs.ShowAllLinks();
-    } else {
-        cout << "Failed to load workspace." << endl;
-    }
+    
+    mgr.Run();
 
     return 0;
 }
