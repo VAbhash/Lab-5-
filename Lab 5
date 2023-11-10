@@ -3,53 +3,63 @@
 #include <string>
 #include <sstream>
 #include <fstream>
+#include <cstdlib>
 
 using namespace std;
 
-// Клас для зберігання та генерації послідовності цифр
+class CDataChain;
+// Клас представляє ланку даних у послідовності
+class CLink {
+public:
+    CLink(CDataChain& refChain);
+    virtual ~CLink();
+
+    bool Attach(const char* sSubStr);
+    virtual void Output(ostream& os);
+    virtual bool Save(ostream& so);
+    virtual bool Load(istream& is);
+
+protected:
+    CDataChain& m_refChain;
+    int m_nPos;
+    int m_nSize;
+};
+
+// Клас для представлення послідовностей даних
+class CWorkspace;
+
+typedef vector<CLink*> LinksArray;
+// Клас для представлення послідовностей даних
 class CDataChain {
 public:
     CDataChain() {}
     virtual ~CDataChain() {}
 
-    // Генерація послідовності цифр
     virtual void Generate(int nDepth, int nMaxLength = 0) = 0;
-
-    // Отримання довжини послідовності
     size_t GetLength() const { return m_sChain.length(); }
-
-    // Пошук підстрічки в послідовності
     int Find(const char* sSubStr, int nPos = 0) const {
         string str(sSubStr);
         size_t pos = m_sChain.find(str, nPos);
         return pos == string::npos ? -1 : static_cast<int>(pos);
     }
-
-    // Отримання підстрічки за певними параметрами
     string GetSubStr(int nPos, int nLength = -1) const {
         if (nLength == -1 || nPos + nLength > GetLength()) {
             return m_sChain.substr(nPos);
         }
         return m_sChain.substr(nPos, nLength);
     }
-
-    // Отримання повної послідовності як C-style рядок
     const char* GetFullString() const { return m_sChain.c_str(); }
-
-    // Встановлення нової послідовності
     void SetChain(const string& newChain) { m_sChain = newChain; }
 
 protected:
     string m_sChain;
 };
-
-// Наслідуваний клас для простої генерації послідовності
+// Клас для генерації простих послідовностей даних
 class CDataSimple : public CDataChain {
 public:
     CDataSimple() {}
     virtual ~CDataSimple() {}
 
-    // Генерація простої послідовності цифр
     void Generate(int nDepth, int nMaxLength = 0) override {
         ostringstream ss;
         for (int i = 0; i <= nDepth; ++i) {
@@ -61,40 +71,36 @@ public:
         m_sChain = ss.str().substr(0, nMaxLength);
     }
 };
-
-// Клас CWorkspace для роботи з даними
+// Клас для роботи з послідовністю даних та ланками
 class CWorkspace {
 public:
     CWorkspace(CDataChain& data) : m_data(data) {}
 
-    // Генерація нової послідовності через об'єкт CDataChain
     void Generate(int nDepth, int nMaxLength) { m_data.Generate(nDepth, nMaxLength); }
-
-    // Отримання повної послідовності як C-style рядок
     const char* GetChainString() const { return m_data.GetFullString(); }
-
-    // Встановлення нової послідовності через об'єкт CDataChain
     void SetChain(const string& newChain) { m_data.SetChain(newChain); }
-
-    // Пошук підстрічки в послідовності через об'єкт CDataChain
     int FindSubstring(const char* sSubStr, int nPos = 0) const { return m_data.Find(sSubStr, nPos); }
+
+    bool AddLink(int nStartPos, int nLength);
+    bool RemoveLink(int nPosInList);
+    bool ShowAllLinks();
 
 private:
     CDataChain& m_data;
+    LinksArray m_aLinks;
 };
 
-// Тип функції команди
+// Тип для зберігання команд
 typedef void (*ptDlgCommandFunc)(CWorkspace& ws);
 
-// Клас для зв'язування команд з функціями
+
+// Клас, який представляє команду для взаємодії з користувачем
 class CDlgCommand {
 public:
     CDlgCommand(const char* sName, ptDlgCommandFunc pFunc = NULL) : m_sName(sName), m_pFunc(pFunc) {}
 
-    // Отримання назви команди
     const char* GetName() const { return m_sName.c_str(); }
 
-    // Виконання команди через функцію, яку вона представляє
     void Run(CWorkspace& ws) const {
         if (m_pFunc) (*m_pFunc)(ws);
         else cout << "No function associated with this command." << endl;
@@ -104,50 +110,53 @@ private:
     string m_sName;
     ptDlgCommandFunc m_pFunc;
 };
-
-// Клас для управління діалогом
+// Клас для управління командами та взаємодії з користувачем
 class CDialogManager {
 public:
     CDialogManager(CWorkspace& ws) : m_refWorkspace(ws) {
-        m_aCommands.push_back(new CDlgCommand("Quit"));
+        RegisterCommand("0. Quit", Quit);
+        RegisterCommand("1. Show All Links", ShowAllLinks);
     }
 
-    // Звільнення ресурсів при завершенні роботи
     ~CDialogManager() {
         for (CDlgCommand* command : m_aCommands) {
             delete command;
         }
     }
 
-    // Реєстрація нової команди
-    void RegisterCommand(const char* sName, ptDlgCommandFunc pFunc) {
+    void RegisterCommand(const char* sName, ptDlgCommandFunc pFunc = NULL) {
         m_aCommands.push_back(new CDlgCommand(sName, pFunc));
     }
 
-    // Запуск діалогового інтерфейсу
     void Run() {
         int nCommand = -1;
         while (nCommand != 0) {
             cout << endl;
             for (size_t i = 0; i < m_aCommands.size(); i++) {
-                cout << i << ". " << m_aCommands[i]->GetName() << endl;
+                cout << m_aCommands[i]->GetName() << endl;
             }
             cout << "Enter command: ";
             cin >> nCommand;
-            if (nCommand > 0 && nCommand < (int)m_aCommands.size()) {
-                m_aCommands[nCommand]->Run(m_refWorkspace);
+            if (nCommand >= 0 && nCommand < static_cast<int>(m_aCommands.size())) {
+                m_aCommands[static_cast<size_t>(nCommand)]->Run(m_refWorkspace);
             }
         }
+    }
+
+    static void ShowAllLinks(CWorkspace& ws) {
+        ws.ShowAllLinks();
+    }
+
+    static void Quit(CWorkspace& ws) {
+        cout << "Quitting the program." << endl;
+        exit(0);
     }
 
 private:
     vector<CDlgCommand*> m_aCommands;
     CWorkspace& m_refWorkspace;
 };
-
-// Функції для команд користувача
-
-// Ініціалізація послідовності через об'єкт CDataChain
+// Ініціалізація послідовності
 void Init(CWorkspace& ws) {
     int depth, maxLength;
     cout << "Enter depth for sequence generation: ";
@@ -157,13 +166,11 @@ void Init(CWorkspace& ws) {
     ws.Generate(depth, maxLength);
     cout << "Sequence initialized." << endl;
 }
-
-// Виведення повної послідовності на екран через об'єкт CDataChain
+// Виведення повної послідовності
 void ShowFullSequence(CWorkspace& ws) {
     cout << "Current sequence: " << ws.GetChainString() << endl;
 }
-
-// Збереження послідовності у файл через об'єкт CDataChain
+// Збереження послідовності в файл
 void Save(CWorkspace& ws) {
     string filepath;
     cout << "Enter filename to save the sequence: ";
@@ -177,8 +184,7 @@ void Save(CWorkspace& ws) {
         cout << "Error: Could not open file " << filepath << endl;
     }
 }
-
-// Завантаження послідовності з файлу через об'єкт CDataChain
+// Завантаження послідовності з файлу
 void Load(CWorkspace& ws) {
     string filepath;
     cout << "Enter filename to load the sequence from: ";
@@ -193,8 +199,7 @@ void Load(CWorkspace& ws) {
         cout << "Error: Could not open file " << filepath << endl;
     }
 }
-
-// Пошук підстрічки в послідовності через об'єкт CDataChain
+// Пошук підстрічки у послідовності
 void FindSubstring(CWorkspace& ws) {
     string substring;
     cout << "Enter substring to find: ";
@@ -206,22 +211,69 @@ void FindSubstring(CWorkspace& ws) {
         cout << "Substring not found in the sequence." << endl;
     }
 }
+// Додавання ланки до послідовності
+bool CWorkspace::AddLink(int nStartPos, int nLength) {
+    if (nStartPos < 0 || nLength <= 0) {
+        cout << "Error: Invalid parameters for AddLink." << endl;
+        return false;
+    }
 
+    if (nStartPos + nLength > static_cast<int>(m_data.GetLength())) {
+        cout << "Error: Link position and length exceed the sequence boundaries." << endl;
+        return false;
+    }
+
+    CLink* newLink = new CLink(m_data);
+    if (!newLink->Attach(m_data.GetSubStr(nStartPos, nLength).c_str())) {
+        cout << "Error: Failed to attach link to the specified substring." << endl;
+        delete newLink;
+        return false;
+    }
+
+    m_aLinks.push_back(newLink);
+
+    return true;
+}
+// Видалення ланки з послідовності
+bool CWorkspace::RemoveLink(int nPosInList) {
+    if (nPosInList < 0 || nPosInList >= static_cast<int>(m_aLinks.size())) {
+        cout << "Error: Invalid position for RemoveLink." << endl;
+        return false;
+    }
+
+    delete m_aLinks[static_cast<size_t>(nPosInList)];
+    m_aLinks.erase(m_aLinks.begin() + nPosInList);
+
+    return true;
+}
+// Виведення всіх ланок в послідовності
+bool CWorkspace::ShowAllLinks() {
+    if (m_aLinks.empty()) {
+        cout << "No links in the list." << endl;
+        return false;
+    }
+
+    cout << "All Links:" << endl;
+    for (size_t i = 0; i < m_aLinks.size(); ++i) {
+        cout << i << ". ";
+        m_aLinks[i]->Output(cout);
+        cout << endl;
+    }
+
+    return true;
+}
 
 int main() {
-    
     CDataSimple data;
     CWorkspace ws(data);
     CDialogManager mgr(ws);
 
-    // Реєстрація команд для діалогового інтерфейсу
-    mgr.RegisterCommand("Init sequence", Init);
-    mgr.RegisterCommand("Show sequence", ShowFullSequence);
-    mgr.RegisterCommand("Save", Save);
-    mgr.RegisterCommand("Load", Load);
-    mgr.RegisterCommand("Find substring", FindSubstring);  
+    mgr.RegisterCommand("2. Init sequence", Init);
+    mgr.RegisterCommand("3. Show sequence", ShowFullSequence);
+    mgr.RegisterCommand("4. Save", Save);
+    mgr.RegisterCommand("5. Load", Load);
+    mgr.RegisterCommand("6. Find substring", FindSubstring);
 
-    
     mgr.Run();
 
     return 0;
