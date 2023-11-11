@@ -1,111 +1,413 @@
 #include <iostream>
+#include <vector>
 #include <string>
 #include <sstream>
+#include <fstream>
+#include <cstdlib>
 
 using namespace std;
 
-// Клас, який визначає абстракцію для послідовності цифр.
+
+// Клас CDataChain - базовий клас для роботи з ланцюжком даних
+class CDataChain;
+
+// Клас CLink - базовий клас для представлення ланки в ланцюжку
+class CLink {
+public:
+    CLink(CDataChain& refChain);
+    virtual ~CLink();
+
+    bool Attach(const char* sSubStr);
+    // Віртуальні методи для виведення, збереження та завантаження ланки
+    virtual void Output(ostream& os);
+    virtual bool Save(ostream& so);
+    virtual bool Load(istream& is);
+
+protected:
+    CDataChain& m_refChain;
+    int m_nPos; // Позиція ланки в ланцюжку
+    int m_nSize; // Розмір ланки
+};
+
+// Клас CLinkURL - похідний клас від CLink для роботи з URL
+class CLinkURL : public CLink {
+public:
+    CLinkURL(CDataChain& refChain);
+    virtual ~CLinkURL();
+    // Встановлює URL для ланки
+    void SetURL(const string& url);
+    const string& GetURL() const;
+    
+    // Перевизначені віртуальні методи для виведення, збереження та завантаження ланки
+    void Output(ostream& os) override;
+    bool Save(ostream& so) override;
+    bool Load(istream& is) override;
+
+private:
+    string m_sURL;
+};
+// Клас CDataChain - базовий клас для представлення ланцюжка даних
 class CDataChain {
 public:
     CDataChain() {}
     virtual ~CDataChain() {}
-
-    // Віртуальний метод для генерації послідовності цифр, який повинен бути реалізований у нащадках.
+    
+    // Віртуальний метод для генерації даних
     virtual void Generate(int nDepth, int nMaxLength = 0) = 0;
-
-    // Метод для отримання довжини поточної послідовності.
-    size_t GetLength() {
-        return m_sChain.length();
-    }
-
-    // Метод для пошуку підстрічки у поточній послідовності, починаючи з позиції nPos.
-    int Find(const char* sSubStr, int nPos = 0) {
+    size_t GetLength() const { return m_sChain.length(); }
+    int Find(const char* sSubStr, int nPos = 0) const {
         string str(sSubStr);
         size_t pos = m_sChain.find(str, nPos);
-
         return pos == string::npos ? -1 : static_cast<int>(pos);
     }
-
-    // Метод для отримання підстрічки з послідовності, починаючи з позиції nPos.
-    string GetSubStr(int nPos, int nLength = -1) {
+    string GetSubStr(int nPos, int nLength = -1) const {
         if (nLength == -1 || nPos + nLength > GetLength()) {
             return m_sChain.substr(nPos);
         }
-
         return m_sChain.substr(nPos, nLength);
     }
-
-    // Метод для отримання всієї поточної послідовності цифр.
-    const char* GetFullString() {
-        return m_sChain.c_str();
-    }
+    const char* GetFullString() const { return m_sChain.c_str(); }
+    void SetChain(const string& newChain) { m_sChain = newChain; }
 
 protected:
-    // Стрічка для зберігання згенерованої послідовності цифр.
     string m_sChain;
 };
 
-// Клас, який наслідується від CDataChain і реалізує логіку генерації послідовності.
+// Клас CDataSimple - похідний клас від CDataChain для простої генерації послідовності
 class CDataSimple : public CDataChain {
 public:
     CDataSimple() {}
     virtual ~CDataSimple() {}
 
-    // Метод для генерації послідовності цифр шляхом конкатенації послідовних чисел.
-    void Generate(int nDepth, int nMaxLength = 0) {
+    void Generate(int nDepth, int nMaxLength = 0) override { // Метод для генерації простої послідовності
         ostringstream ss;
         for (int i = 0; i <= nDepth; ++i) {
-            ss << i; // Додаємо число до стрічки.
-            
-            // Перевіряємо, чи стрічка не перевищила максимальної довжини.
+            ss << i;
             if (nMaxLength > 0 && ss.str().length() >= static_cast<size_t>(nMaxLength)) {
                 break;
             }
         }
-        
-        // Встановлюємо згенеровану послідовність з урахуванням максимальної довжини.
         m_sChain = ss.str().substr(0, nMaxLength);
     }
 };
 
-int main() {
-    // Змінні для зберігання введення користувача.
+// Клас для роботи з послідовністю даних та ланками
+class CWorkspace {
+public:
+    CWorkspace(CDataChain& data) : m_data(data) {}
+
+    void Generate(int nDepth, int nMaxLength) { m_data.Generate(nDepth, nMaxLength); }
+    const char* GetChainString() const { return m_data.GetFullString(); }
+    void SetChain(const string& newChain) { m_data.SetChain(newChain); }
+    int FindSubstring(const char* sSubStr, int nPos = 0) const { return m_data.Find(sSubStr, nPos); }
+
+    bool AddLink(int nStartPos, int nLength);
+    bool RemoveLink(int nPosInList);
+    bool ShowAllLinks();
+    bool AddURL(int nPos, int nLength, const string& url);
+
+private:
+    CDataChain& m_data;
+    vector<CLink*> m_aLinks;
+};
+
+typedef void (*ptDlgCommandFunc)(CWorkspace& ws);
+
+// Клас, який представляє команду для взаємодії з користувачем
+class CDlgCommand {
+public:
+    CDlgCommand(const char* sName, ptDlgCommandFunc pFunc = NULL) : m_sName(sName), m_pFunc(pFunc) {}
+
+    const char* GetName() const { return m_sName.c_str(); }
+
+    void Run(CWorkspace& ws) const {
+        if (m_pFunc) (*m_pFunc)(ws);
+        else cout << "No function associated with this command." << endl;
+    }
+
+private:
+    string m_sName;
+    ptDlgCommandFunc m_pFunc;
+};
+
+// Клас для управління командами та взаємодією з користувачем
+class CDialogManager {
+public:
+    CDialogManager() {}
+
+    ~CDialogManager() {
+        for (CDlgCommand* command : m_aCommands) {
+            delete command;
+        }
+    }
+
+    void RegisterCommand(const char* sName, ptDlgCommandFunc pFunc = NULL) {
+        m_aCommands.push_back(new CDlgCommand(sName, pFunc));
+    }
+
+    void Run(CWorkspace& ws) {
+        int nCommand = -1;
+        while (nCommand != 0) {
+            cout << endl;
+            for (size_t i = 0; i < m_aCommands.size(); i++) {
+                cout << m_aCommands[i]->GetName() << endl;
+            }
+            cout << "Enter command: ";
+            cin >> nCommand;
+            if (nCommand >= 0 && nCommand < static_cast<int>(m_aCommands.size())) {
+                m_aCommands[static_cast<size_t>(nCommand)]->Run(ws);
+            }
+        }
+    }
+
+    static void ShowAllLinks(CWorkspace& ws) {
+        ws.ShowAllLinks();
+    }
+
+    static void Quit(CWorkspace& ws) {
+        cout << "Quitting the program." << endl;
+        exit(0);
+    }
+
+    static void AddLink(CWorkspace& ws) {
+        int startPos, length;
+        cout << "Enter start position for the link: ";
+        cin >> startPos;
+        cout << "Enter length for the link: ";
+        cin >> length;
+        ws.AddLink(startPos, length);
+    }
+
+    static void RemoveLink(CWorkspace& ws) {
+        int pos;
+        cout << "Enter position of the link to remove: ";
+        cin >> pos;
+        ws.RemoveLink(pos);
+    }
+
+    static void AddURL(CWorkspace& ws) {
+        int startPos, length;
+        string url;
+        cout << "Enter start position for the link: ";
+        cin >> startPos;
+        cout << "Enter length for the link: ";
+        cin >> length;
+        cout << "Enter URL: ";
+        cin >> url;
+        ws.AddURL(startPos, length, url);
+    }
+
+private:
+    vector<CDlgCommand*> m_aCommands;
+};
+
+// Ініціалізація послідовності
+void Init(CWorkspace& ws) {
     int depth, maxLength;
-    string subStrToFind;
-    int subStrPos, subStrLength;
-
-    
-    cout << "Enter the depth for generation: ";
+    cout << "Enter depth for sequence generation: ";
     cin >> depth;
-    
-
-    cout << "Enter the maximum length for the sequence: ";
+    cout << "Enter maximum length for the sequence: ";
     cin >> maxLength;
+    ws.Generate(depth, maxLength);
+    cout << "Sequence initialized." << endl;
+}
+// Виведення повної послідовності
+void ShowFullSequence(CWorkspace& ws) {
+    cout << "Current sequence: " << ws.GetChainString() << endl;
+}
+// Збереження послідовності в файл
+void Save(CWorkspace& ws) {
+    string filepath;
+    cout << "Enter filename to save the sequence: ";
+    cin >> filepath;
+    ofstream file(filepath);
+    if (file.is_open()) {
+        file << ws.GetChainString();
+        file.close();
+        cout << "Sequence saved to " << filepath << endl;
+    } else {
+        cout << "Error: Could not open file " << filepath << endl;
+    }
+}
+// Завантаження послідовності з файлу
+void Load(CWorkspace& ws) {
+    string filepath;
+    cout << "Enter filename to load the sequence from: ";
+    cin >> filepath;
+    ifstream file(filepath);
+    if (file.is_open()) {
+        string line;
+        getline(file, line);
+        ws.SetChain(line);
+        cout << "Sequence loaded from " << filepath << endl;
+    } else {
+        cout << "Error: Could not open file " << filepath << endl;
+    }
+}
+// Пошук підстрічки у послідовності
+void FindSubstring(CWorkspace& ws) {
+    string substring;
+    cout << "Enter substring to find: ";
+    cin >> substring;
+    int position = ws.FindSubstring(substring.c_str());
+    if (position != -1) {
+        cout << "Substring found at position: " << position << endl;
+    } else {
+        cout << "Substring not found in the sequence." << endl;
+    }
+}
 
+CLink::CLink(CDataChain& refChain) : m_refChain(refChain), m_nPos(0), m_nSize(0) {
+}
+
+CLink::~CLink() {
+}
+
+bool CLink::Attach(const char* sSubStr) {
+    if (sSubStr == nullptr) {
+        cerr << "Error: Invalid substring." << endl;
+        return false;
+    }
+
+    m_nSize = static_cast<int>(strlen(sSubStr));
+
+    return true;
+}
+
+void CLink::Output(ostream& os) {
+    os << "Link at position " << m_nPos << " with size " << m_nSize;
+}
+
+bool CLink::Save(ostream& so) {
+    so << m_nPos << ' ' << m_nSize << '\n';
+
+    return true;
+}
+
+bool CLink::Load(istream& is) {
+    is >> m_nPos >> m_nSize;
+
+    return true;
+}
+
+CLinkURL::CLinkURL(CDataChain& refChain) : CLink(refChain) {}
+
+CLinkURL::~CLinkURL() {}
+
+void CLinkURL::SetURL(const string& url) {
+    m_sURL = url;
+}
+
+const string& CLinkURL::GetURL() const {
+    return m_sURL;
+}
+
+void CLinkURL::Output(ostream& os) {
+    os << "Link at position " << m_nPos << " with size " << m_nSize << " and URL: " << m_sURL;
+}
+
+bool CLinkURL::Save(ostream& so) {
+    so << m_nPos << ' ' << m_nSize << ' ' << m_sURL << '\n';
+    return true;
+}
+
+bool CLinkURL::Load(istream& is) {
+    is >> m_nPos >> m_nSize >> m_sURL;
+    return true;
+}
+// Додавання лінка до послідовності
+bool CWorkspace::AddLink(int nStartPos, int nLength) {
+    if (nStartPos < 0 || nLength <= 0) {
+        cout << "Error: Invalid parameters for AddLink." << endl;
+        return false;
+    }
+
+    if (nStartPos + nLength > static_cast<int>(m_data.GetLength())) {
+        cout << "Error: Link position and length exceed the sequence boundaries." << endl;
+        return false;
+    }
+
+    CLink* newLink = new CLink(m_data);
+    if (!newLink->Attach(m_data.GetSubStr(nStartPos, nLength).c_str())) {
+        cout << "Error: Failed to attach link to the specified substring." << endl;
+        delete newLink;
+        return false;
+    }
+
+    m_aLinks.push_back(newLink);
+
+    return true;
+}
+// Видалення ланки з послідовності
+bool CWorkspace::RemoveLink(int nPosInList) {
+    if (nPosInList < 0 || nPosInList >= static_cast<int>(m_aLinks.size())) {
+        cout << "Error: Invalid position for RemoveLink." << endl;
+        return false;
+    }
+
+    delete m_aLinks[static_cast<size_t>(nPosInList)];
+    m_aLinks.erase(m_aLinks.begin() + nPosInList);
+
+    return true;
+}
+// Виведення всіх лінків в послідовності
+bool CWorkspace::ShowAllLinks() {
+    if (m_aLinks.empty()) {
+        cout << "No links in the list." << endl;
+        return false;
+    }
+
+    cout << "All Links:" << endl;
+    for (size_t i = 0; i < m_aLinks.size(); ++i) {
+        cout << i << ". ";
+        m_aLinks[i]->Output(cout);
+        cout << endl;
+    }
+
+    return true;
+}
+// Добавлення нового URL лінка 
+bool CWorkspace::AddURL(int nStartPos, int nLength, const string& url) {
+    if (nStartPos < 0 || nLength <= 0) {
+        cout << "Error: Invalid parameters for AddURL." << endl;
+        return false;
+    }
+
+    if (nStartPos + nLength > static_cast<int>(m_data.GetLength())) {
+        cout << "Error: Link position and length exceed the sequence boundaries." << endl;
+        return false;
+    }
+
+    CLinkURL* newLink = new CLinkURL(m_data);
+    if (!newLink->Attach(m_data.GetSubStr(nStartPos, nLength).c_str())) {
+        cout << "Error: Failed to attach link to the specified substring." << endl;
+        delete newLink;
+        return false;
+    }
+
+    newLink->SetURL(url);
+    m_aLinks.push_back(newLink);
+
+    return true;
+}
+
+int main() {
     CDataSimple data;
-    
-    // Генерація послідовності з заданими параметрами.
-    data.Generate(depth, maxLength);
+    CWorkspace ws(data);
+    CDialogManager mgr;
 
-    // Виведення згенерованої послідовності.
-    cout << "Generated sequence: " << data.GetFullString() << endl;
+    mgr.RegisterCommand("0. Quit", CDialogManager::Quit);
+    mgr.RegisterCommand("1. Show All Links", CDialogManager::ShowAllLinks);
+    mgr.RegisterCommand("2. Init sequence", Init);
+    mgr.RegisterCommand("3. Show sequence", ShowFullSequence);
+    mgr.RegisterCommand("4. Save", Save);
+    mgr.RegisterCommand("5. Load", Load);
+    mgr.RegisterCommand("6. Find substring", FindSubstring);
+    mgr.RegisterCommand("7. Add link", CDialogManager::AddLink);
+    mgr.RegisterCommand("8. Remove link", CDialogManager::RemoveLink);
+    mgr.RegisterCommand("9. Add URL", CDialogManager::AddURL);
 
-    cout << "Enter the substring to find: ";
-    cin >> subStrToFind;
-
-    // Пошук підстрічки у згенерованій послідовності.
-    int pos = data.Find(subStrToFind.c_str());
-    cout << "Position of '" << subStrToFind << "': " << pos << endl;
-
-    // Введення позиції та довжини для отримання підстрічки.
-    cout << "Enter the starting position for the substring: ";
-    cin >> subStrPos;
-    
-    cout << "Enter the length of the substring: ";
-    cin >> subStrLength;
-
-    string subStr = data.GetSubStr(subStrPos, subStrLength);
-    cout << "Substring starting at " << subStrPos << " of length " << subStrLength << ": " << subStr << endl;
+    mgr.Run(ws);
 
     return 0;
 }
