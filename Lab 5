@@ -8,7 +8,7 @@
 using namespace std;
 
 class CDataChain;
-// Клас представляє ланку даних у послідовності
+// Клас, який представляє ланку даних у послідовності
 class CLink {
 public:
     CLink(CDataChain& refChain);
@@ -20,16 +20,11 @@ public:
     virtual bool Load(istream& is);
 
 protected:
-    CDataChain& m_refChain; // Посилання на об'єкт CDataChain для роботи з даними.
-    int m_nPos;             // Позиція ланки в послідовності.
-    int m_nSize;            // Розмір ланки (кількість символів).
+    CDataChain& m_refChain;
+    int m_nPos;
+    int m_nSize;
 };
 
-// Клас для представлення послідовностей даних
-class CWorkspace;
-
-typedef vector<CLink*> LinksArray;
-// Клас для представлення послідовностей даних
 class CDataChain {
 public:
     CDataChain() {}
@@ -52,7 +47,7 @@ public:
     void SetChain(const string& newChain) { m_sChain = newChain; }
 
 protected:
-    string m_sChain; // Зберігання послідовності у форматі рядка.
+    string m_sChain;  // Зберігання послідовності у форматі рядка
 };
 // Клас для генерації простих послідовностей даних
 class CDataSimple : public CDataChain {
@@ -60,7 +55,7 @@ public:
     CDataSimple() {}
     virtual ~CDataSimple() {}
 
-    void Generate(int nDepth, int nMaxLength = 0) override {
+    void Generate(int nDepth, int nMaxLength = 0) override {  // Метод для генерації простої послідовності
         ostringstream ss;
         for (int i = 0; i <= nDepth; ++i) {
             ss << i;
@@ -76,22 +71,22 @@ class CWorkspace {
 public:
     CWorkspace(CDataChain& data) : m_data(data) {}
 
-    void Generate(int nDepth, int nMaxLength) { m_data.Generate(nDepth, nMaxLength); }
-    const char* GetChainString() const { return m_data.GetFullString(); }
-    void SetChain(const string& newChain) { m_data.SetChain(newChain); }
-    int FindSubstring(const char* sSubStr, int nPos = 0) const { return m_data.Find(sSubStr, nPos); }
+    void Generate(int nDepth, int nMaxLength) { m_data.Generate(nDepth, nMaxLength); } // Метод для генерації послідовності в робочому просторі
+    const char* GetChainString() const { return m_data.GetFullString(); } // Метод для отримання рядка послідовності
+    void SetChain(const string& newChain) { m_data.SetChain(newChain); }   // Метод для встановлення нової послідовності
+    int FindSubstring(const char* sSubStr, int nPos = 0) const { return m_data.Find(sSubStr, nPos); } // Метод для пошуку підстрічки в послідовності
 
-    bool AddLink(int nStartPos, int nLength);
-    bool RemoveLink(int nPosInList);
-    bool ShowAllLinks();
+    bool AddLink(int nStartPos, int nLength); // Метод для додавання лінка до послідовності
+    bool RemoveLink(int nPosInList);   // Метод для видалення лінка з послідовності
+    bool ShowAllLinks();  // Метод для виведення усіх лінків в послідовності
 
 private:
-    CDataChain& m_data;  // Посилання на об'єкт CDataChain для роботи з даними.
-    LinksArray m_aLinks;  // Вектор для зберігання об'єктів CLink.
+    CDataChain& m_data; // Посилання на об'єкт CDataChain для роботи з даними
+    vector<CLink*> m_aLinks; // Вектор для зберігання об'єктів CLink
+
 };
 
-// Тип для зберігання команд
-typedef void (*ptDlgCommandFunc)(CWorkspace& ws);
+typedef void (*ptDlgCommandFunc)(CWorkspace& ws); // Тип для зберігання команд
 
 // Клас, який представляє команду для взаємодії з користувачем
 class CDlgCommand {
@@ -106,17 +101,13 @@ public:
     }
 
 private:
-    string m_sName;          // Назва команди.
-    ptDlgCommandFunc m_pFunc; // Вказівник на функцію, яку викликає команда.
+    string m_sName;
+    ptDlgCommandFunc m_pFunc;
 };
-
 // Клас для управління командами та взаємодією з користувачем
 class CDialogManager {
 public:
-    CDialogManager(CWorkspace& ws) : m_refWorkspace(ws) {
-        RegisterCommand("0. Quit", Quit);
-        RegisterCommand("1. Show All Links", ShowAllLinks);
-    }
+    CDialogManager() {}
 
     ~CDialogManager() {
         for (CDlgCommand* command : m_aCommands) {
@@ -124,11 +115,11 @@ public:
         }
     }
 
-    void RegisterCommand(const char* sName, ptDlgCommandFunc pFunc = NULL) {
+    void RegisterCommand(const char* sName, ptDlgCommandFunc pFunc = NULL) { // Метод для реєстрації команди
         m_aCommands.push_back(new CDlgCommand(sName, pFunc));
     }
 
-    void Run() {
+    void Run(CWorkspace& ws) {
         int nCommand = -1;
         while (nCommand != 0) {
             cout << endl;
@@ -138,7 +129,7 @@ public:
             cout << "Enter command: ";
             cin >> nCommand;
             if (nCommand >= 0 && nCommand < static_cast<int>(m_aCommands.size())) {
-                m_aCommands[static_cast<size_t>(nCommand)]->Run(m_refWorkspace);
+                m_aCommands[static_cast<size_t>(nCommand)]->Run(ws);
             }
         }
     }
@@ -152,9 +143,24 @@ public:
         exit(0);
     }
 
+    static void AddLink(CWorkspace& ws) {
+        int startPos, length;
+        cout << "Enter start position for the link: ";
+        cin >> startPos;
+        cout << "Enter length for the link: ";
+        cin >> length;
+        ws.AddLink(startPos, length);
+    }
+
+    static void RemoveLink(CWorkspace& ws) {
+        int pos;
+        cout << "Enter position of the link to remove: ";
+        cin >> pos;
+        ws.RemoveLink(pos);
+    }
+
 private:
-    vector<CDlgCommand*> m_aCommands; // Вектор для зберігання об'єктів CDlgCommand.
-    CWorkspace& m_refWorkspace;       // Посилання на об'єкт CWorkspace для роботи з даними.
+    vector<CDlgCommand*> m_aCommands;
 };
 
 // Ініціалізація послідовності
@@ -217,7 +223,48 @@ void FindSubstring(CWorkspace& ws) {
     }
 }
 
-// Додавання ланки до послідовності
+CLink::CLink(CDataChain& refChain) : m_refChain(refChain), m_nPos(0), m_nSize(0) {
+    
+}
+
+CLink::~CLink() {
+    
+}
+
+bool CLink::Attach(const char* sSubStr) {
+    if (sSubStr == nullptr) {
+        cerr << "Error: Invalid substring." << endl;
+        return false;
+    }
+
+    m_nSize = static_cast<int>(strlen(sSubStr));
+
+    
+
+    return true;
+}
+
+void CLink::Output(ostream& os) {
+    os << "Link at position " << m_nPos << " with size " << m_nSize;
+}
+
+bool CLink::Save(ostream& so) {
+    so << m_nPos << ' ' << m_nSize << '\n';
+
+    
+
+    return true;
+}
+
+bool CLink::Load(istream& is) {
+    is >> m_nPos >> m_nSize;
+
+    
+
+    return true;
+}
+
+// Додавання лінка до послідовності
 bool CWorkspace::AddLink(int nStartPos, int nLength) {
     if (nStartPos < 0 || nLength <= 0) {
         cout << "Error: Invalid parameters for AddLink." << endl;
@@ -240,7 +287,6 @@ bool CWorkspace::AddLink(int nStartPos, int nLength) {
 
     return true;
 }
-
 // Видалення ланки з послідовності
 bool CWorkspace::RemoveLink(int nPosInList) {
     if (nPosInList < 0 || nPosInList >= static_cast<int>(m_aLinks.size())) {
@@ -253,8 +299,7 @@ bool CWorkspace::RemoveLink(int nPosInList) {
 
     return true;
 }
-
-// Виведення всіх ланок в послідовності
+// Виведення всіх лінків в послідовності
 bool CWorkspace::ShowAllLinks() {
     if (m_aLinks.empty()) {
         cout << "No links in the list." << endl;
@@ -271,21 +316,22 @@ bool CWorkspace::ShowAllLinks() {
     return true;
 }
 
-// Точка входу у програму
 int main() {
     CDataSimple data;
     CWorkspace ws(data);
-    CDialogManager mgr(ws);
+    CDialogManager mgr;
 
-    // Реєстрація команд для взаємодії з користувачем
+    mgr.RegisterCommand("0. Quit", CDialogManager::Quit);
+    mgr.RegisterCommand("1. Show All Links", CDialogManager::ShowAllLinks);
     mgr.RegisterCommand("2. Init sequence", Init);
     mgr.RegisterCommand("3. Show sequence", ShowFullSequence);
     mgr.RegisterCommand("4. Save", Save);
     mgr.RegisterCommand("5. Load", Load);
     mgr.RegisterCommand("6. Find substring", FindSubstring);
+    mgr.RegisterCommand("7. Add link", CDialogManager::AddLink);
+    mgr.RegisterCommand("8. Remove link", CDialogManager::RemoveLink);
 
-    
-    mgr.Run();
+    mgr.Run(ws);
 
     return 0;
 }
