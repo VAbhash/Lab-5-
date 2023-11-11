@@ -27,7 +27,7 @@ public:
     const char* GetFullString() const { return m_sChain.c_str(); }
     void SetChain(const string& newChain) { m_sChain = newChain; }
 protected:
-    string m_sChain;
+    string m_sChain;  // Рядок для зберігання згенерованої послідовності.
 };
 
 // Наслідуваний клас для простої генерації послідовності
@@ -55,7 +55,7 @@ public:
     const char* GetChainString() const { return m_data.GetFullString(); }
     void SetChain(const string& newChain) { m_data.SetChain(newChain); }
 private:
-    CDataChain& m_data;
+    CDataChain& m_data;  // Посилання на об'єкт для зберігання/генерації послідовності.
 };
 
 // Тип функції команди
@@ -72,8 +72,8 @@ public:
         else cout << "No function associated with this command." << endl;
     }
 private:
-    string m_sName;
-    ptDlgCommandFunc m_pFunc;
+    string m_sName;           // Ім'я команди.
+    ptDlgCommandFunc m_pFunc;  // Вказівник на функцію, пов'язану з командою.
 };
 
 // Клас для управління діалогом
@@ -105,11 +105,13 @@ public:
         }
     }
 private:
-    vector<CDlgCommand*> m_aCommands;
-    CWorkspace& m_refWorkspace;
+    vector<CDlgCommand*> m_aCommands;  // Вектор для зберігання об'єктів команд.
+    CWorkspace& m_refWorkspace;       // Посилання на об'єкт CWorkspace для взаємодії.
 };
 
 // Функції для команд користувача
+
+// Ініціалізує послідовність цифр використовуючи об'єкт CDataChain.
 void Init(CWorkspace& ws) {
     int depth, maxLength;
     cout << "Enter depth for sequence generation: ";
@@ -120,10 +122,12 @@ void Init(CWorkspace& ws) {
     cout << "Sequence initialized." << endl;
 }
 
+// Виводить поточну послідовність на екран.
 void ShowFullSequence(CWorkspace& ws) {
     cout << "Current sequence: " << ws.GetChainString() << endl;
 }
 
+// Зберігає поточну послідовність у файл.
 void Save(CWorkspace& ws) {
     string filepath;
     cout << "Enter filename to save the sequence: ";
@@ -138,6 +142,7 @@ void Save(CWorkspace& ws) {
     }
 }
 
+// Завантажує послідовність з файлу та встановлює її у CDataChain.
 void Load(CWorkspace& ws) {
     string filepath;
     cout << "Enter filename to load the sequence from: ";
@@ -153,16 +158,19 @@ void Load(CWorkspace& ws) {
     }
 }
 
+// Точка входу у програму
 int main() {
     CDataSimple data;
     CWorkspace ws(data);
     CDialogManager mgr(ws);
 
+    // Реєстрація команд для взаємодії з користувачем
     mgr.RegisterCommand("Init sequence", Init);
     mgr.RegisterCommand("Show sequence", ShowFullSequence);
     mgr.RegisterCommand("Save", Save);
     mgr.RegisterCommand("Load", Load);
 
+    // Запуск діалогового менеджера
     mgr.Run();
 
     return 0;
