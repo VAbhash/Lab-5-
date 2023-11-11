@@ -4,38 +4,37 @@
 
 using namespace std;
 
-
+// Клас, який визначає абстракцію для послідовності цифр.
 class CDataChain {
 public:
     CDataChain() {}
     virtual ~CDataChain() {}
-    
+
     // Віртуальний метод для генерації послідовності цифр, який повинен бути реалізований у нащадках.
     virtual void Generate(int nDepth, int nMaxLength = 0) = 0;
-    
+
     // Метод для отримання довжини поточної послідовності.
     size_t GetLength() {
         return m_sChain.length();
     }
-    
+
     // Метод для пошуку підстрічки у поточній послідовності, починаючи з позиції nPos.
     int Find(const char* sSubStr, int nPos = 0) {
         string str(sSubStr);
         size_t pos = m_sChain.find(str, nPos);
-        
+
         return pos == string::npos ? -1 : static_cast<int>(pos);
     }
-    
+
     // Метод для отримання підстрічки з послідовності, починаючи з позиції nPos.
     string GetSubStr(int nPos, int nLength = -1) {
         if (nLength == -1 || nPos + nLength > GetLength()) {
-            
             return m_sChain.substr(nPos);
         }
-        
+
         return m_sChain.substr(nPos, nLength);
     }
-    
+
     // Метод для отримання всієї поточної послідовності цифр.
     const char* GetFullString() {
         return m_sChain.c_str();
@@ -46,22 +45,24 @@ protected:
     string m_sChain;
 };
 
-// Наслідуваний клас, що реалізує логіку генерації послідовності.
+// Клас, який наслідується від CDataChain і реалізує логіку генерації послідовності.
 class CDataSimple : public CDataChain {
 public:
     CDataSimple() {}
     virtual ~CDataSimple() {}
-    
+
     // Метод для генерації послідовності цифр шляхом конкатенації послідовних чисел.
     void Generate(int nDepth, int nMaxLength = 0) {
         ostringstream ss;
         for (int i = 0; i <= nDepth; ++i) {
             ss << i; // Додаємо число до стрічки.
+            
             // Перевіряємо, чи стрічка не перевищила максимальної довжини.
             if (nMaxLength > 0 && ss.str().length() >= static_cast<size_t>(nMaxLength)) {
-                break; 
+                break;
             }
         }
+        
         // Встановлюємо згенеровану послідовність з урахуванням максимальної довжини.
         m_sChain = ss.str().substr(0, nMaxLength);
     }
@@ -72,35 +73,39 @@ int main() {
     int depth, maxLength;
     string subStrToFind;
     int subStrPos, subStrLength;
+
     
-    // Запит на введення глибини генерації від користувача.
     cout << "Enter the depth for generation: ";
     cin >> depth;
-    // Запит на введення максимальної довжини послідовності.
+    
+
     cout << "Enter the maximum length for the sequence: ";
     cin >> maxLength;
-    
+
     CDataSimple data;
+    
     // Генерація послідовності з заданими параметрами.
     data.Generate(depth, maxLength);
-    
+
+    // Виведення згенерованої послідовності.
     cout << "Generated sequence: " << data.GetFullString() << endl;
-    
-    
+
     cout << "Enter the substring to find: ";
     cin >> subStrToFind;
+
     // Пошук підстрічки у згенерованій послідовності.
     int pos = data.Find(subStrToFind.c_str());
     cout << "Position of '" << subStrToFind << "': " << pos << endl;
-    
-    
+
+    // Введення позиції та довжини для отримання підстрічки.
     cout << "Enter the starting position for the substring: ";
     cin >> subStrPos;
+    
     cout << "Enter the length of the substring: ";
     cin >> subStrLength;
-    
+
     string subStr = data.GetSubStr(subStrPos, subStrLength);
     cout << "Substring starting at " << subStrPos << " of length " << subStrLength << ": " << subStr << endl;
-    
+
     return 0;
 }
